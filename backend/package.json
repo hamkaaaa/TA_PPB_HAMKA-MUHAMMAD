@@ -1,0 +1,32 @@
+{
+  "name": "tempomatch-api",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": [
+    "tempomatch",
+    "dj",
+    "bpm",
+    "express",
+    "supabase",
+    "ppb"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "RESTful API for TempoMatch (Direktori lagu berdasarkan BPM dan Mood untuk DJ) - Modul 1 PPB",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
+
