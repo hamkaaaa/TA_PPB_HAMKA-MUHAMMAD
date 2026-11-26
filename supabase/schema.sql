@@ -3,6 +3,15 @@
 -- Praktikum PPB Ganjil 2026 - Tugas Akhir
 -- =========================================================
 
+-- 0. Tabel Users (Akun DJ untuk Auth Custom)
+create table if not exists users (
+  id uuid primary key default gen_random_uuid(),
+  username text not null unique,
+  display_name text,
+  password_hash text not null,
+  created_at timestamptz default now()
+);
+
 -- 1. Tabel Moods (Kategori Mood Lagu untuk DJ)
 create table if not exists moods (
   id uuid primary key default gen_random_uuid(),
@@ -14,6 +23,7 @@ create table if not exists moods (
 );
 
 -- 2. Tabel Tracks (Direktori Lagu dengan BPM, Key, Energy, Mood)
+-- user_id NULL = lagu default publik (read-only), user_id terisi = lagu pribadi milik user
 create table if not exists tracks (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -26,16 +36,19 @@ create table if not exists tracks (
   mood_id uuid references moods(id) on delete set null,
   notes text,
   cover_url text,
+  user_id uuid references users(id) on delete cascade,
+  deezer_id bigint unique,
   created_at timestamptz default now()
 );
 
--- 3. Tabel DJ Crates (Setlist / Koleksi Lagu DJ)
+-- 3. Tabel DJ Crates (Setlist / Koleksi Lagu DJ milik masing-masing user)
 create table if not exists dj_crates (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   venue_type text,
   target_bpm text,
   description text,
+  user_id uuid references users(id) on delete cascade,
   created_at timestamptz default now()
 );
 
@@ -48,3 +61,5 @@ create table if not exists crate_tracks (
   unique (crate_id, track_id)
 );
 
+create index if not exists idx_tracks_user_id on tracks(user_id);
+create index if not exists idx_dj_crates_user_id on dj_crates(user_id);

@@ -6,7 +6,7 @@ const navItems = [
   { to: "/moods", label: "Moods", icon: Sparkles },
   { to: "/add", label: "Add", icon: PlusCircle, highlight: true },
   { to: "/crates", label: "Crates", icon: FolderHeart },
-  { to: "/about", label: "About", icon: User },
+  { to: "/about", label: "Akun", icon: User },
 ];
 
 export default function BottomNav() {

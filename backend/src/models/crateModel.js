@@ -8,12 +8,19 @@ function ensureClient() {
   }
 }
 
+function createHttpError(message, status) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
 export const CrateModel = {
-  async getAll() {
+  async getAll(userId) {
     ensureClient();
     const { data, error } = await supabase
       .from("dj_crates")
       .select("*, crate_tracks(count)")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (error) throw error;
     return data.map((crate) => ({
@@ -22,12 +29,13 @@ export const CrateModel = {
     }));
   },
 
-  async getById(id) {
+  async getById(id, userId) {
     ensureClient();
     const { data: crate, error: crateError } = await supabase
       .from("dj_crates")
       .select("*")
       .eq("id", id)
+      .eq("user_id", userId)
       .single();
     if (crateError) throw crateError;
 
@@ -37,7 +45,7 @@ export const CrateModel = {
         `
         id, position,
         tracks (
-          id, title, artist, bpm, musical_key, energy, duration, genre, mood_id, notes,
+          id, title, artist, bpm, musical_key, energy, duration, genre, mood_id, notes, cover_url, user_id, deezer_id,
           moods ( id, name, color_hex )
         )
       `
@@ -57,38 +65,77 @@ export const CrateModel = {
     return { ...crate, tracks };
   },
 
-  async create(payload) {
+  async create(payload, userId) {
     ensureClient();
+    const nextPayload = { ...payload, user_id: userId };
     const { data, error } = await supabase
       .from("dj_crates")
-      .insert([payload])
+      .insert([nextPayload])
       .select()
       .single();
     if (error) throw error;
     return data;
   },
 
-  async update(id, payload) {
+  async update(id, payload, userId) {
     ensureClient();
+    const nextPayload = { ...payload };
+    delete nextPayload.user_id;
     const { data, error } = await supabase
       .from("dj_crates")
-      .update(payload)
+      .update(nextPayload)
       .eq("id", id)
+      .eq("user_id", userId)
       .select()
       .single();
     if (error) throw error;
     return data;
   },
 
-  async remove(id) {
+  async remove(id, userId) {
     ensureClient();
-    const { error } = await supabase.from("dj_crates").delete().eq("id", id);
+    const { data: existing, error: fetchError } = await supabase
+      .from("dj_crates")
+      .select("id")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (!existing) {
+      throw createHttpError("Crate tidak ditemukan.", 404);
+    }
+    const { error } = await supabase
+      .from("dj_crates")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", userId);
     if (error) throw error;
     return { message: "Crate deleted successfully" };
   },
 
-  async addTrack(crateId, trackId, position = 1) {
+  async addTrack(crateId, trackId, position = 1, userId) {
     ensureClient();
+    const { data: crate, error: crateErr } = await supabase
+      .from("dj_crates")
+      .select("id")
+      .eq("id", crateId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (crateErr) throw crateErr;
+    if (!crate) {
+      throw createHttpError("Crate tidak ditemukan atau bukan milik Anda.", 404);
+    }
+
+    const { data: track, error: trackErr } = await supabase
+      .from("tracks")
+      .select("id, user_id")
+      .eq("id", trackId)
+      .maybeSingle();
+    if (trackErr) throw trackErr;
+    if (!track || (track.user_id !== null && track.user_id !== userId)) {
+      throw createHttpError("Lagu tidak dapat diakses.", 404);
+    }
+
     const { data, error } = await supabase
       .from("crate_tracks")
       .insert([{ crate_id: crateId, track_id: trackId, position }])
@@ -98,8 +145,19 @@ export const CrateModel = {
     return data;
   },
 
-  async removeTrack(crateId, trackId) {
+  async removeTrack(crateId, trackId, userId) {
     ensureClient();
+    const { data: crate, error: crateErr } = await supabase
+      .from("dj_crates")
+      .select("id")
+      .eq("id", crateId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (crateErr) throw crateErr;
+    if (!crate) {
+      throw createHttpError("Crate tidak ditemukan atau bukan milik Anda.", 404);
+    }
+
     const { error } = await supabase
       .from("crate_tracks")
       .delete()
@@ -109,4 +167,3 @@ export const CrateModel = {
     return { message: "Track removed from crate" };
   },
 };
-

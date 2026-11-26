@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -10,14 +10,20 @@ import {
   FolderPlus,
   Sparkles,
   Check,
+  Play,
+  Pause,
+  LogIn,
+  ShieldCheck,
 } from "lucide-react";
 import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import TrackCard from "../components/TrackCard";
 import ErrorBanner from "../components/ErrorBanner";
 
 export default function TrackDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
 
   const [track, setTrack] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -27,12 +33,26 @@ export default function TrackDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const audioRef = useRef(null);
+
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
+    setPreviewError("");
+    setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
 
-    Promise.all([api.getTrackById(id), api.getCrates().catch(() => [])])
+    Promise.all([
+      api.getTrackById(id),
+      isAuthenticated ? api.getCrates().catch(() => []) : Promise.resolve([]),
+    ])
       .then(async ([trackData, cratesData]) => {
         if (!active) return;
         setTrack(trackData);
@@ -59,8 +79,12 @@ export default function TrackDetailPage() {
 
     return () => {
       active = false;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   const handleDelete = async () => {
     if (!confirm(`Hapus lagu "${track.title}"?`)) return;
@@ -81,6 +105,48 @@ export default function TrackDetailPage() {
     } catch (err) {
       setAddedFeedback(err.message);
       setTimeout(() => setAddedFeedback(""), 3000);
+    }
+  };
+
+  const handleTogglePreview = async () => {
+    setPreviewError("");
+
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      return;
+    }
+
+    if (audioRef.current) {
+      try {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      } catch {
+        setPreviewError("Browser memblokir pemutaran audio.");
+      }
+      return;
+    }
+
+    setLoadingPreview(true);
+    try {
+      const data = await api.getTrackPreview(id);
+      if (!data?.preview_url) {
+        setPreviewError("Preview audio tidak tersedia untuk lagu ini.");
+        return;
+      }
+      const audio = new Audio(data.preview_url);
+      audio.onended = () => setIsPlaying(false);
+      audio.onerror = () => {
+        setIsPlaying(false);
+        setPreviewError("Gagal memuat audio preview dari Deezer.");
+      };
+      audioRef.current = audio;
+      await audio.play();
+      setIsPlaying(true);
+    } catch (err) {
+      setPreviewError(err.message || "Gagal memuat preview audio.");
+    } finally {
+      setLoadingPreview(false);
     }
   };
 
@@ -109,6 +175,7 @@ export default function TrackDetailPage() {
 
   const mood = track.moods;
   const moodColor = mood?.color_hex || "#8B5CF6";
+  const isOwner = Boolean(user && track.user_id === user.id);
 
   return (
     <div className="space-y-5">
@@ -121,20 +188,27 @@ export default function TrackDetailPage() {
           <ArrowLeft className="h-3.5 w-3.5" /> Kembali
         </button>
 
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/tracks/${id}/edit`}
-            className="inline-flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-cyan-500/40 hover:text-cyan-300"
-          >
-            <Pencil className="h-3.5 w-3.5" /> Edit
-          </Link>
-          <button
-            onClick={handleDelete}
-            className="inline-flex items-center gap-1 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Hapus
-          </button>
-        </div>
+        {isOwner ? (
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/tracks/${id}/edit`}
+              className="inline-flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:border-cyan-500/40 hover:text-cyan-300"
+            >
+              <Pencil className="h-3.5 w-3.5" /> Edit
+            </Link>
+            <button
+              onClick={handleDelete}
+              className="inline-flex items-center gap-1 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/20"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Hapus
+            </button>
+          </div>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3 py-1.5 text-[11px] font-medium text-zinc-400">
+            <ShieldCheck className="h-3.5 w-3.5 text-cyan-400" />
+            Katalog Default
+          </span>
+        )}
       </div>
 
       {/* Hero Card */}
@@ -144,7 +218,15 @@ export default function TrackDetailPage() {
           style={{ backgroundColor: moodColor }}
         />
 
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-3.5">
+          {track.cover_url && (
+            <img
+              src={track.cover_url}
+              alt={`${track.title} cover`}
+              className="h-20 w-20 shrink-0 rounded-2xl border border-zinc-700/80 object-cover shadow-lg"
+            />
+          )}
+
           <div className="min-w-0 flex-1">
             {mood && (
               <Link
@@ -174,6 +256,36 @@ export default function TrackDetailPage() {
             </span>
           </div>
         </div>
+
+        {/* 30s Deezer Audio Preview */}
+        {track.deezer_id && (
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleTogglePreview}
+              disabled={loadingPreview}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 py-2.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/20 disabled:opacity-50"
+            >
+              {isPlaying ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              <span>
+                {loadingPreview
+                  ? "Memuat preview..."
+                  : isPlaying
+                    ? "Jeda Preview 30 Detik"
+                    : "Putar Preview 30 Detik (Deezer)"}
+              </span>
+            </button>
+            {previewError && (
+              <p className="mt-1.5 text-center text-[11px] text-amber-400">
+                {previewError}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Metrics Grid */}
         <div className="mt-5 grid grid-cols-3 gap-2.5">
@@ -231,7 +343,34 @@ export default function TrackDetailPage() {
       </div>
 
       {/* Add to Crate */}
-      {crates.length > 0 && (
+      {!isAuthenticated ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+          <p className="text-xs text-zinc-400">
+            Masuk untuk menyimpan lagu ini ke DJ Crate pribadimu.
+          </p>
+          <Link
+            to="/login"
+            state={{ from: `/tracks/${id}` }}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-500"
+          >
+            <LogIn className="h-3.5 w-3.5" />
+            <span>Masuk</span>
+          </Link>
+        </div>
+      ) : crates.length === 0 ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
+          <p className="text-xs text-zinc-400">
+            Kamu belum punya DJ Crate. Buat dulu untuk mulai menyusun setlist.
+          </p>
+          <Link
+            to="/crates"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-pink-600 px-3 py-2 text-xs font-semibold text-white hover:bg-pink-500"
+          >
+            <FolderPlus className="h-3.5 w-3.5" />
+            <span>Buat Crate</span>
+          </Link>
+        </div>
+      ) : (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4">
           <p className="mb-2.5 text-xs font-semibold text-zinc-200">
             Masukkan ke DJ Crate / Setlist
@@ -287,4 +426,3 @@ export default function TrackDetailPage() {
     </div>
   );
 }
-

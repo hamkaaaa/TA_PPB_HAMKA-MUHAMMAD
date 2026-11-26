@@ -1,8 +1,20 @@
 import { useEffect, useState } from "react";
-import { Disc3, Server, Download, UserCheck, Code2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  Disc3,
+  Server,
+  Download,
+  UserCheck,
+  Code2,
+  LogIn,
+  LogOut,
+  User,
+} from "lucide-react";
 import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 export default function AboutPage() {
+  const { user, isAuthenticated, logout } = useAuth();
   const [apiStatus, setApiStatus] = useState("checking");
   const [installPrompt, setInstallPrompt] = useState(null);
 
@@ -30,11 +42,58 @@ export default function AboutPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-xl font-bold text-white">Profile &amp; About</h1>
+        <h1 className="text-xl font-bold text-white">Akun &amp; About</h1>
         <p className="text-xs text-zinc-400">
-          Informasi aplikasi TempoMatch &amp; Pengembang
+          Sesi DJ, informasi aplikasi TempoMatch &amp; Pengembang
         </p>
       </header>
+
+      {/* Account Card */}
+      <div className="rounded-3xl border border-zinc-800 bg-zinc-900/80 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-violet-500/30 bg-violet-500/15">
+              <User className="h-5 w-5 text-violet-300" />
+            </div>
+            <div>
+              {isAuthenticated ? (
+                <>
+                  <h2 className="text-sm font-bold text-white">
+                    {user.display_name || user.username}
+                  </h2>
+                  <p className="text-xs text-cyan-400">@{user.username}</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-sm font-bold text-white">Mode Tamu</h2>
+                  <p className="text-xs text-zinc-400">
+                    Masuk untuk membuat Crate &amp; lagu pribadi
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          {isAuthenticated ? (
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/20"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span>Keluar</span>
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 px-3.5 py-2 text-xs font-semibold text-white hover:opacity-95"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Masuk / Daftar</span>
+            </Link>
+          )}
+        </div>
+      </div>
 
       {/* App Identity Card */}
       <div className="relative overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/80 p-5">

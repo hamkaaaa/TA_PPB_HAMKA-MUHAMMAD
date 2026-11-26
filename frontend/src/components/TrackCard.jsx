@@ -4,28 +4,45 @@ import { ChevronRight, Clock, Zap } from "lucide-react";
 export default function TrackCard({ track }) {
   const mood = track.moods;
   const moodColor = mood?.color_hex || "#8B5CF6";
+  const isUserTrack = Boolean(track.user_id);
 
   return (
     <Link
       to={`/tracks/${track.id}`}
-      className="group flex items-center gap-3.5 rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-3.5 transition-all hover:border-zinc-700 hover:bg-zinc-900 active:scale-[0.99]"
+      className="group flex items-center gap-3 rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-3.5 transition-all hover:border-zinc-700 hover:bg-zinc-900 active:scale-[0.99]"
     >
-      {/* BPM Badge */}
-      <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl border border-cyan-500/25 bg-gradient-to-br from-cyan-500/15 to-violet-500/15">
-        <span className="tabular-nums text-lg font-bold leading-none text-cyan-300">
+      {/* BPM Badge (with optional Album Cover background) */}
+      <div className="relative flex h-14 w-14 shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-cyan-500/25 bg-gradient-to-br from-cyan-500/15 to-violet-500/15">
+        {track.cover_url && (
+          <>
+            <img
+              src={track.cover_url}
+              alt=""
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover opacity-35"
+            />
+            <div className="absolute inset-0 bg-zinc-950/55" />
+          </>
+        )}
+        <span className="relative tabular-nums text-lg font-bold leading-none text-cyan-300">
           {track.bpm}
         </span>
-        <span className="mt-1 text-[9px] font-semibold tracking-wider text-zinc-400 uppercase">
+        <span className="relative mt-1 text-[9px] font-semibold tracking-wider text-zinc-300 uppercase">
           BPM
         </span>
       </div>
 
       {/* Track Info */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <h3 className="truncate text-sm font-semibold text-zinc-100 group-hover:text-cyan-300 transition-colors">
             {track.title}
           </h3>
+          {isUserTrack && (
+            <span className="shrink-0 rounded-full border border-violet-500/40 bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-violet-300">
+              Lagu Saya
+            </span>
+          )}
         </div>
         <p className="truncate text-xs text-zinc-400">
           {track.artist} · <span className="text-zinc-500">{track.genre}</span>
@@ -62,4 +79,3 @@ export default function TrackCard({ track }) {
     </Link>
   );
 }
-

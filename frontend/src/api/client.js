@@ -2,10 +2,14 @@ const API_BASE = (
   import.meta.env.VITE_API_URL || "http://localhost:3000/api"
 ).replace(/\/$/, "");
 
+export const TOKEN_STORAGE_KEY = "tempomatch_token";
+
 async function request(path, options = {}) {
+  const token = localStorage.getItem(TOKEN_STORAGE_KEY);
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
     ...options,
@@ -24,6 +28,13 @@ export const api = {
   // Health check
   health: () => fetch(API_BASE.replace(/\/api$/, "")).then((r) => r.json()),
 
+  // Auth
+  register: (payload) =>
+    request("/auth/register", { method: "POST", body: JSON.stringify(payload) }),
+  login: (payload) =>
+    request("/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+  me: () => request("/auth/me"),
+
   // Tracks
   getTracks: (params = {}) => {
     const qs = new URLSearchParams();
@@ -34,6 +45,7 @@ export const api = {
     return request(`/tracks${query ? `?${query}` : ""}`);
   },
   getTrackById: (id) => request(`/tracks/${id}`),
+  getTrackPreview: (id) => request(`/tracks/${id}/preview`),
   getGenres: () => request("/tracks/genres"),
   createTrack: (payload) =>
     request("/tracks", { method: "POST", body: JSON.stringify(payload) }),
@@ -61,4 +73,3 @@ export const api = {
   removeTrackFromCrate: (crateId, trackId) =>
     request(`/crates/${crateId}/tracks/${trackId}`, { method: "DELETE" }),
 };
-

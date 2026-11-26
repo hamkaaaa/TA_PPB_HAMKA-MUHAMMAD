@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
-import { Search, Radio, RotateCcw, Disc3 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Search, Radio, RotateCcw, Disc3, LogIn, User } from "lucide-react";
 import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import TrackCard from "../components/TrackCard";
 import ErrorBanner from "../components/ErrorBanner";
 
@@ -12,7 +14,15 @@ const BPM_RANGES = [
   { id: "fast", label: "133+", min: 133, max: 299 },
 ];
 
+const SCOPE_OPTIONS = [
+  { id: "all", label: "Semua" },
+  { id: "default", label: "Default" },
+  { id: "mine", label: "Lagu Saya" },
+];
+
 export default function TracksPage() {
+  const { user, isAuthenticated } = useAuth();
+
   const [tracks, setTracks] = useState([]);
   const [moods, setMoods] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +31,7 @@ export default function TracksPage() {
   const [search, setSearch] = useState("");
   const [selectedMood, setSelectedMood] = useState("");
   const [bpmRangeId, setBpmRangeId] = useState("all");
+  const [scope, setScope] = useState("all");
   const [tappedBpm, setTappedBpm] = useState(null);
 
   const tapTimesRef = useRef([]);
@@ -33,6 +44,12 @@ export default function TracksPage() {
   }, []);
 
   useEffect(() => {
+    if (!isAuthenticated && scope !== "all") {
+      setScope("all");
+    }
+  }, [isAuthenticated, scope]);
+
+  useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
@@ -43,6 +60,7 @@ export default function TracksPage() {
       mood_id: selectedMood || undefined,
       min_bpm: tappedBpm ? tappedBpm - 5 : range?.min,
       max_bpm: tappedBpm ? tappedBpm + 5 : range?.max,
+      scope: isAuthenticated ? scope : undefined,
     };
 
     const timer = setTimeout(() => {
@@ -63,7 +81,7 @@ export default function TracksPage() {
       active = false;
       clearTimeout(timer);
     };
-  }, [search, selectedMood, bpmRangeId, tappedBpm]);
+  }, [search, selectedMood, bpmRangeId, tappedBpm, scope, isAuthenticated, user?.id]);
 
   const handleTapTempo = () => {
     const now = Date.now();
@@ -95,25 +113,25 @@ export default function TracksPage() {
 
   return (
     <div className="space-y-4">
-      {/* Top Header + Tap Tempo */}
-      <header className="flex items-center justify-between gap-3">
-        <div>
+      {/* Top Header + Tap Tempo + User/Login */}
+      <header className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Disc3 className="h-6 w-6 text-cyan-400" />
-            <h1 className="text-xl font-bold tracking-tight text-white">
+            <Disc3 className="h-6 w-6 shrink-0 text-cyan-400" />
+            <h1 className="truncate text-xl font-bold tracking-tight text-white">
               TempoMatch
             </h1>
           </div>
-          <p className="text-xs text-zinc-400">
+          <p className="truncate text-xs text-zinc-400">
             Direktori lagu BPM &amp; Mood untuk DJ
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={handleTapTempo}
-            className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all active:scale-95 ${
+            className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-semibold transition-all active:scale-95 ${
               tappedBpm
                 ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-300"
                 : "border-zinc-700 bg-zinc-900 text-zinc-200 hover:border-zinc-600"
@@ -134,6 +152,23 @@ export default function TracksPage() {
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
           )}
+          {isAuthenticated ? (
+            <Link
+              to="/about"
+              className="inline-flex max-w-[100px] items-center gap-1 rounded-xl border border-violet-500/30 bg-violet-500/15 px-2.5 py-2 text-xs font-semibold text-violet-200 hover:bg-violet-500/25"
+            >
+              <User className="h-3.5 w-3.5 shrink-0 text-violet-300" />
+              <span className="truncate">@{user.username}</span>
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-1 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 px-3 py-2 text-xs font-semibold text-white hover:opacity-95"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Masuk</span>
+            </Link>
+          )}
         </div>
       </header>
 
@@ -148,6 +183,26 @@ export default function TracksPage() {
           className="w-full rounded-2xl border border-zinc-800 bg-zinc-900/80 py-2.5 pl-10 pr-4 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-cyan-500/60"
         />
       </div>
+
+      {/* Scope Filter (when logged in) */}
+      {isAuthenticated && (
+        <div className="grid grid-cols-3 gap-1.5 rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-1">
+          {SCOPE_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setScope(opt.id)}
+              className={`rounded-xl py-1.5 text-xs font-medium transition-colors ${
+                scope === opt.id
+                  ? "bg-zinc-800 text-cyan-300 font-semibold"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* BPM Range Filter */}
       {!tappedBpm && (
@@ -213,7 +268,9 @@ export default function TracksPage() {
       {/* Track List */}
       <section className="space-y-2.5">
         <div className="flex items-center justify-between text-xs text-zinc-500">
-          <span>{loading ? "Memuat lagu..." : `${tracks.length} lagu ditemukan`}</span>
+          <span>
+            {loading ? "Memuat lagu..." : `${tracks.length} lagu ditemukan`}
+          </span>
           <span>Urut: BPM</span>
         </div>
 
@@ -246,4 +303,3 @@ export default function TracksPage() {
     </div>
   );
 }
-

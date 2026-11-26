@@ -12,7 +12,7 @@ export const MoodController = {
 
   async getById(req, res) {
     try {
-      const mood = await MoodModel.getById(req.params.id);
+      const mood = await MoodModel.getById(req.params.id, req.user?.id || null);
       res.json(mood);
     } catch (err) {
       res.status(404).json({ error: err.message });

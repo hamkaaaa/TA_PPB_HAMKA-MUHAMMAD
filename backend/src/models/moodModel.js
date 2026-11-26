@@ -19,7 +19,7 @@ export const MoodModel = {
     return data;
   },
 
-  async getById(id) {
+  async getById(id, userId = null) {
     ensureClient();
     const { data: mood, error: moodError } = await supabase
       .from("moods")
@@ -28,11 +28,21 @@ export const MoodModel = {
       .single();
     if (moodError) throw moodError;
 
-    const { data: tracks, error: tracksError } = await supabase
+    let tracksQuery = supabase
       .from("tracks")
-      .select("id, title, artist, bpm, musical_key, energy, duration, genre, mood_id, notes, cover_url")
+      .select(
+        "id, title, artist, bpm, musical_key, energy, duration, genre, mood_id, notes, cover_url, user_id, deezer_id"
+      )
       .eq("mood_id", id)
       .order("bpm", { ascending: true });
+
+    if (userId) {
+      tracksQuery = tracksQuery.or(`user_id.is.null,user_id.eq.${userId}`);
+    } else {
+      tracksQuery = tracksQuery.is("user_id", null);
+    }
+
+    const { data: tracks, error: tracksError } = await tracksQuery;
     if (tracksError) throw tracksError;
 
     return { ...mood, tracks: tracks || [] };
