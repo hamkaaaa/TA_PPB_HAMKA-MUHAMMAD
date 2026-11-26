@@ -1,4 +1,4 @@
-+import express from "express";
+import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import moodRoutes from "./routes/moodRoutes.js";
@@ -31,9 +31,11 @@ app.use("/api/tracks", trackRoutes);
 app.use("/api/crates", crateRoutes);
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log(`TempoMatch API running on port ${port}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`TempoMatch API running on port ${port}`);
+  });
+}
 
 export default app;
 
